@@ -1,21 +1,89 @@
 #!groovy
 
-@Library('jenkinslib') _     
+@Library('jenkinslib') _
 
-def mytools = new org.devops.tools()
+def tools = new org.devops.tools()
 
+//Pipeline
 pipeline {
-    agent { node {  label "master" }}
+    agent { node {  label "master"  }}
+    
+    options {
+        timestamps()  //日志会有时间
+        skipDefaultCheckout()  //删除隐式checkout scm语句
+        disableConcurrentBuilds() //禁止并行
+        timeout(time: 1, unit: 'HOURS')  //流水线超时设置1h
+    }
 
     stages {
         //下载代码
-        stage("GetCode"){ 
-            steps{  
-                timeout(time:5, unit:"MINUTES"){   
-                    script{ 
-                        mytools.PrintMes("获取代码",'green')
+        stage("GetCode"){ //阶段名称
+            steps{  //步骤
+                timeout(time:5, unit:"MINUTES"){   //步骤超时时间
+                    script{ //填写运行代码
+                        println('获取代码')
+                        tools.PrintMes("获取代码",'green')
+                        
+                        input id: 'Test', message: '我们是否要继续？', ok: '是，继续吧！', parameters: [choice(choices: ['a', 'b'], description: '', name: 'test1')], submitter: 'admin'
                     }
                 }
+            }
+        }
+
+        stage("Go"){
+            failFast true
+            parallel {
+        
+                //构建
+                stage("Build"){
+                    steps{
+                        timeout(time:20, unit:"MINUTES"){
+                            script{
+                                println('应用打包')
+                                tools.PrintMes("应用打包",'green')
+                            }
+                        }
+                    }
+                }
+        
+                //代码扫描
+                stage("CodeScan"){
+                    steps{
+                        timeout(time:30, unit:"MINUTES"){
+                            script{
+                                print("代码扫描")
+                                tools.PrintMes("代码扫描",'green')
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //构建后操作
+    post {
+        always {
+            script{
+                println("always")
+            }
+        }
+
+        success {
+            script{
+                currentBuild.description = "\n 构建成功!" 
+            }
+        }
+
+        failure {
+            script{
+                currentBuild.description = "\n 构建失败!" 
+            }
+        }
+
+        aborted {
+            script{
+                currentBuild.description = "\n 构建取消!" 
             }
         }
     }
